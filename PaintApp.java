@@ -55,23 +55,14 @@ public class PaintApp extends JFrame {
         undoButton.addActionListener(e -> canvas.undoLastStroke());
         saveButton.addActionListener(e -> {
             JFileChooser fc = new JFileChooser();
-            fc.setDialogTitle("Save project (.pnt) or export image (.png)");
-            javax.swing.filechooser.FileNameExtensionFilter pntFilter = new javax.swing.filechooser.FileNameExtensionFilter("Paint project (*.pnt)", "pnt");
+            fc.setDialogTitle("Export image (.png)");
             javax.swing.filechooser.FileNameExtensionFilter pngFilter = new javax.swing.filechooser.FileNameExtensionFilter("PNG image (*.png)", "png");
-            fc.addChoosableFileFilter(pntFilter);
-            fc.addChoosableFileFilter(pngFilter);
-            fc.setAcceptAllFileFilterUsed(true);
+            fc.setFileFilter(pngFilter);
             if (fc.showSaveDialog(this) == JFileChooser.APPROVE_OPTION) {
                 File f = fc.getSelectedFile();
-                // if no extension provided, append extension from chosen file filter
-                if (!f.getName().contains(".")) {
-                    javax.swing.filechooser.FileFilter chosen = fc.getFileFilter();
-                    String ext = "pnt"; // default
-                    if (chosen instanceof javax.swing.filechooser.FileNameExtensionFilter) {
-                        String[] exts = ((javax.swing.filechooser.FileNameExtensionFilter) chosen).getExtensions();
-                        if (exts != null && exts.length > 0) ext = exts[0];
-                    }
-                    f = new File(f.getParentFile(), f.getName() + "." + ext);
+                // if no extension provided, default to .png
+                if (!f.getName().toLowerCase().endsWith(".png")) {
+                    f = new File(f.getParentFile(), f.getName() + ".png");
                 }
                 try {
                     canvas.saveToFile(f);
@@ -83,9 +74,9 @@ public class PaintApp extends JFrame {
 
         loadButton.addActionListener(e -> {
             JFileChooser fc = new JFileChooser();
-            fc.setDialogTitle("Open project (.pnt) or image (.png)");
-            fc.addChoosableFileFilter(new javax.swing.filechooser.FileNameExtensionFilter("Paint project (*.pnt)", "pnt"));
-            fc.addChoosableFileFilter(new javax.swing.filechooser.FileNameExtensionFilter("PNG image (*.png)", "png"));
+            fc.setDialogTitle("Open image (.png)");
+            javax.swing.filechooser.FileNameExtensionFilter pngFilter = new javax.swing.filechooser.FileNameExtensionFilter("PNG image (*.png)", "png");
+            fc.setFileFilter(pngFilter);
             if (fc.showOpenDialog(this) == JFileChooser.APPROVE_OPTION) {
                 File f = fc.getSelectedFile();
                 try {
@@ -107,15 +98,8 @@ public class PaintApp extends JFrame {
         abstract void undo();
     }
 
-    // Interface demonstrating use of 'implements'
-    private interface Persistable {
-        void saveToFile(File f) throws IOException;
-        void loadFromFile(File f) throws IOException, ClassNotFoundException;
-    }
-
-    // Concrete storage using ArrayList; also implements Persistable for file IO
-    private static class ListShapeStorage extends ShapeStorage implements Persistable, Serializable {
-        private static final long serialVersionUID = 1L;
+    // Concrete storage using ArrayList
+    private static class ListShapeStorage extends ShapeStorage {
         private final List<List<LineSegment>> strokes = new ArrayList<>();
         private List<LineSegment> currentStroke = null;
 
@@ -152,24 +136,7 @@ public class PaintApp extends JFrame {
             if (!strokes.isEmpty()) strokes.remove(strokes.size() - 1);
         }
 
-        @Override
-        public void saveToFile(File f) throws IOException {
-            try (ObjectOutputStream oos = new ObjectOutputStream(new FileOutputStream(f))) {
-                oos.writeObject(strokes);
-            }
-        }
-
-        @SuppressWarnings("unchecked")
-        @Override
-        public void loadFromFile(File f) throws IOException, ClassNotFoundException {
-            try (ObjectInputStream ois = new ObjectInputStream(new FileInputStream(f))) {
-                Object obj = ois.readObject();
-                if (obj instanceof List) {
-                    strokes.clear();
-                    strokes.addAll((List<List<LineSegment>>) obj);
-                }
-            }
-        }
+        // Removed project file serialization to simplify format: PNG-only export/load
     }
 
     private class DrawPanel extends JPanel {
@@ -243,41 +210,27 @@ public class PaintApp extends JFrame {
             repaint();
         }
 
-        // Save: if filename ends with .png -> export image; otherwise serialize project (.pnt)
+        // Save: always export the canvas as a PNG image
         public void saveToFile(File f) throws IOException {
-            String name = f.getName().toLowerCase();
-            if (name.endsWith(".png")) {
-                // render the panel to a BufferedImage and write PNG
-                BufferedImage img = new BufferedImage(getWidth(), getHeight(), BufferedImage.TYPE_INT_ARGB);
-                Graphics2D g2 = img.createGraphics();
-                this.paint(g2);
-                g2.dispose();
-                ImageIO.write(img, "png", f);
-            } else {
-                // default project format
-                storage.saveToFile(f);
-            }
+            BufferedImage img = new BufferedImage(getWidth(), getHeight(), BufferedImage.TYPE_INT_ARGB);
+            Graphics2D g2 = img.createGraphics();
+            this.paint(g2);
+            g2.dispose();
+            ImageIO.write(img, "png", f);
         }
 
-        // Load: if PNG -> load as background image; otherwise attempt to read project file
-        public void loadFromFile(File f) throws IOException, ClassNotFoundException {
-            String name = f.getName().toLowerCase();
-            if (name.endsWith(".png")) {
-                BufferedImage img = ImageIO.read(f);
-                backgroundImage = img;
-                // clear strokes when loading an image
-                storage.clear();
-                repaint();
-            } else {
-                storage.loadFromFile(f);
-                backgroundImage = null;
-                repaint();
-            }
+        // Load: only PNG images supported (used as background)
+        public void loadFromFile(File f) throws IOException {
+            BufferedImage img = ImageIO.read(f);
+            if (img == null) throw new IOException("Unsupported or invalid image file");
+            backgroundImage = img;
+            // clear strokes when loading an image
+            storage.clear();
+            repaint();
         }
     }
 
-    private static class LineSegment implements Serializable {
-        private static final long serialVersionUID = 1L;
+    private static class LineSegment {
         final int x1, y1, x2, y2;
         final Color color;
         final float strokeWidth;
