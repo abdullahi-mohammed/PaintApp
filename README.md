@@ -41,7 +41,7 @@ The app uses only standard Java libraries (no external dependencies). All UI and
 
 - Oracle Java Tutorials — Swing: https://docs.oracle.com/javase/tutorial/uiswing/
 - Oracle Java SE Documentation: https://docs.oracle.com/en/java/
-- ZetCode Swing Tutorial (concise examples): https://zetcode.com/javagui/swing/
+- ZetCode Swing Tutorial (concise examples): https://zetcode.com/java/
 - Baeldung: Java GUI articles — https://www.baeldung.com/
 - Stack Overflow — for troubleshooting specific API usage questions
 
